@@ -33,6 +33,7 @@
 #include "pe.hpp"
 #include "kernel.hpp"
 #include "filebuf.hpp"
+#include "helper.hpp"
 #include "../anycall/libanycall/libanycall.h"
 
 #define ANYMAPPER_POOL_TAG 'myna'
@@ -50,11 +51,11 @@ namespace anymapper
 
 		printf( "[~] loading: %ls\n", driver_path.data() );
 
-		/*const uint8_t* buffer = reinterpret_cast< uint8_t* >(
+		/*void* buffer = reinterpret_cast< uint8_t* >(
 			LoadLibraryEx( 
 				driver_path.data(),
 				0,
-				DONT_RESOLVE_DLL_REFERENCES | LOAD_LIBRARY_AS_DATAFILE ) );*/
+				DONT_RESOLVE_DLL_REFERENCES ) );*/
 
 		std::vector<uint8_t> file_buffer;
 		
@@ -72,7 +73,7 @@ namespace anymapper
 
 		void* buffer = VirtualAlloc(
 			NULL,
-			file_buffer.size(),
+			pe::pe( file_buffer.data() ).pnt_headers->OptionalHeader.SizeOfImage,
 			MEM_RESERVE | MEM_COMMIT,
 			PAGE_READWRITE );
 
@@ -142,6 +143,18 @@ namespace anymapper
 		const auto delta = 
 			( uint64_t )kbuffer - PE->pnt_headers->OptionalHeader.ImageBase - section_size;
 
+		//memcpy( buffer, file_buffer.data(), PE->pnt_headers->OptionalHeader.SizeOfHeaders );
+
+		printf( "[+] fixing sections...\n" );
+
+		if ( !PE->fix_sections( file_buffer.data() ) )
+		{
+			printf( "[!] \033[0;101;30mfailed to fix image sections\033[0m\n" );
+			//FreeLibrary( ( HMODULE )buffer );
+			ANYCALL_INVOKE( ExFreePool, kbuffer );
+			return false;
+		}
+
 		printf( "[+] relocating image with delta 0x%llX...\n", delta );
 
 		if ( !PE->relocate_image( delta ) )
@@ -152,22 +165,38 @@ namespace anymapper
 			return false;
 		}
 
-		const pe::pe::pre_callback_t pre_callback = []( std::string module_name ) -> bool
+		const pe::pe::pre_callback_t pre_callback = []( 
+			std::string_view module_name ) -> bool
 		{
+			if ( module_name.empty() )
+				return false;
+
+			printf( "[~] -> import module: %s\n", module_name.data() );
+
 			return !!libanycall::find_sysmodule( module_name ).base_address;
 		};
 
 		const pe::pe::post_callback_t post_callback = []( 
-			std::string module_name,
-			void* func_addr, std::string func_name ) -> bool
+			std::string_view module_name,
+			void* func_addr, std::string_view func_name ) -> bool
 		{
-				const auto routine_address = 
-					libanycall::find_export( module_name, func_name );
+			if ( module_name.empty() || func_name.empty() )
+				return false;
 
-				if ( !routine_address )
-					return false;
+			printf( "[~] --> import function: %s @ ", func_name.data() );
 
-				*reinterpret_cast< uint64_t* >( func_addr ) = routine_address;
+			/*const auto routine_address = module_name == "ntoskrnl.exe" ?
+				libanycall::find_ntoskrnl_export( func_name ) :
+				libanycall::find_export( module_name, func_name );*/
+			const auto routine_address = module_name == "ntoskrnl.exe" ?
+				kernel::find_routine_address( helper::s2ws( func_name.data() ) ) : 0;
+
+			printf( "0x%llX\n", routine_address );
+
+			if ( !routine_address )
+				return false;
+
+			*reinterpret_cast< uint64_t* >( func_addr ) = routine_address;
 
 			return true;
 		};
@@ -189,12 +218,34 @@ namespace anymapper
 			( void* )( ( uint64_t )buffer + section_size ),
 			size_to_alloc );
 
-		printf( "[+] payload sent!\n" );
+		printf( "[+] payload sent to 0x%p\n", kbuffer );
 
-		const auto entry_point_addr =
-			( uint64_t )PE->pnt_headers->OptionalHeader.AddressOfEntryPoint;
+		//printf( "stop\n" ); return false;
 
+		const auto entry_point_rva = 
+			PE->pnt_headers->OptionalHeader.AddressOfEntryPoint;
+
+		const auto entry_point_addr = 
+			( uint64_t )kbuffer +
+			( uint64_t )entry_point_rva - section_size;
+
+		printf( "[+] entry point rva: 0x%lX\n", entry_point_rva );
 		printf( "[+] entry point @ 0x%llX\n", entry_point_addr );
+
+		uint8_t readed[ 8 ] = { 0 };
+		memcpy( &readed[ 0 ], &file_buffer.data()[ 0 ], sizeof( readed ) );
+		printf( "readed: %02X %02X %02X %02X %02X %02X %02X %02X\n",
+			readed[ 0 ], readed[ 1 ], readed[ 2 ], readed[ 3 ],
+			readed[ 4 ], readed[ 5 ], readed[ 6 ], readed[ 7 ] );
+
+		kernel::memcpy( &readed[ 0 ], ( void* )entry_point_addr, sizeof( readed ) );
+		printf( "readed: %02X %02X %02X %02X %02X %02X %02X %02X\n",
+			readed[ 0 ], readed[ 1 ], readed[ 2 ], readed[ 3 ],
+			readed[ 4 ], readed[ 5 ], readed[ 6 ], readed[ 7 ] );
+
+		//printf( "stop\n" ); return false;
+		uint8_t shell[] = { 0x48, 0xc7, 0xc0, 0x05, 0x00, 0x00, 0x0C, 0xc3 };
+		kernel::memcpy( ( void* )entry_point_addr, &shell, sizeof( shell ) );
 
 		const NTSTATUS nt_status =
 			libanycall::invoke< DriverEntry >(

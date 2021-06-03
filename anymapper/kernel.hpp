@@ -29,6 +29,8 @@
 
 #include "../anycall/libanycall/libanycall.h"
 
+#pragma comment( lib, "ntdll.lib" ) // RtlInitUnicodeString
+
 namespace kernel
 {
 	//
@@ -49,5 +51,15 @@ namespace kernel
 
 		libanycall::invoke<decltype( &memcpy )>
 			( ntoskrnl_memcpy, dst, src, size );
+	}
+
+	//
+	// find system routine by MmGetSystemRoutineAddress
+	//
+	uint64_t find_routine_address( const std::wstring_view routine_name )
+	{
+		UNICODE_STRING routine_name_us;
+		RtlInitUnicodeString( &routine_name_us, routine_name.data() );
+		return ( uint64_t )ANYCALL_INVOKE( MmGetSystemRoutineAddress, &routine_name_us );
 	}
 }

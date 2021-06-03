@@ -22,6 +22,28 @@ pe::pe::~pe()
 {
 }
 
+bool pe::pe::fix_sections( void* raw )
+{
+	const PIMAGE_SECTION_HEADER section = 
+		IMAGE_FIRST_SECTION( this->pnt_headers );
+
+	for ( 
+		auto i = 0; 
+		i < this->pnt_headers->FileHeader.NumberOfSections; 
+		i++ )
+	{
+		//section->PointerToRawData = section->VirtualAddress;
+		//section->SizeOfRawData = section->Misc.VirtualSize;
+
+		memcpy(
+			( void* )( ( uint64_t )image_base + section[ i ].VirtualAddress ),
+			( void* )( ( uint64_t )raw + section[ i ].PointerToRawData ),
+			section[ i ].SizeOfRawData );
+	}
+
+	return true;
+}
+
 bool pe::pe::relocate_image( uint64_t delta ) const noexcept
 {
 	if ( !delta )
@@ -34,47 +56,37 @@ bool pe::pe::relocate_image( uint64_t delta ) const noexcept
 		pnt_headers->OptionalHeader
 		.DataDirectory[ IMAGE_DIRECTORY_ENTRY_BASERELOC ];
 
-	if ( !relocation_data.Size )
+	if ( !relocation_data.Size || !relocation_data.VirtualAddress )
 		return false;
-
-	const auto base_relocation = 
-		relocation_data.VirtualAddress;
-
-	printf( "base reloc %llX\n", base_relocation );
-
-	if ( !base_relocation )
-		return false;
-
-	printf( "reloc2\n" );
-
-	//printf( "dosp %p\n", ( uint64_t )pdos_header );
 
 	PIMAGE_BASE_RELOCATION relocation_entry =
 		reinterpret_cast< PIMAGE_BASE_RELOCATION >( 
-			( uint64_t )image_base + base_relocation );
+			( uint64_t )image_base + relocation_data.VirtualAddress );
+
+	__try
+	{
+		volatile auto ptr_valid = relocation_entry->VirtualAddress;
+	}
+	__except ( 1 )
+	{
+		return false;
+	}
 
 	const auto relocation_range = 
 		( uint64_t )( ( uint64_t )relocation_entry + relocation_data.Size );
 
-	printf( "reloc4 range %llX\n", relocation_range );
-	
-	__try
-	{
-		printf( "reloc4 addr SizeOfBlock %lX\n", relocation_entry->SizeOfBlock );
-	}
-	__except ( 1 )
-	{
-		printf( "ha? 0x%lX\n",GetExceptionCode() );
-	}
+	if ( IsBadReadPtr( relocation_entry, sizeof( uint64_t ) ) == TRUE )
+		return false;
 
 	while (
+		IsBadReadPtr( relocation_entry, sizeof( uint64_t ) ) == FALSE && 
 		relocation_entry->VirtualAddress &&
 		relocation_entry->VirtualAddress < relocation_range &&
 		relocation_entry->SizeOfBlock )
 	{
 		const auto ibr_size = sizeof( IMAGE_BASE_RELOCATION );
 
-		const auto address = ( uint64_t )( pdos_header + relocation_entry->VirtualAddress );
+		const auto address = ( uint64_t )( ( uint64_t )this->image_base + relocation_entry->VirtualAddress );
 		const auto count = ( relocation_entry->SizeOfBlock - ibr_size ) / sizeof( uint16_t );
 		const auto list = reinterpret_cast< uint16_t* >( ( uint64_t )relocation_entry + ibr_size );
 
@@ -84,8 +96,6 @@ bool pe::pe::relocate_image( uint64_t delta ) const noexcept
 		{
 			const uint16_t type = list[ i ] >> 12;
 			const uint16_t offset = list[ i ] & 0xFFF;
-
-			printf( "0x%llX\n", address );
 
 			if ( type == IMAGE_REL_BASED_DIR64 )
 			{
@@ -129,8 +139,8 @@ bool pe::pe::resolve_imports(
 	while ( import_entry->FirstThunk )
 	{
 		const auto module_name =
-			std::string( 
-				reinterpret_cast< char* >( 
+			std::string(
+				reinterpret_cast< char* >(
 					( uint64_t )pdos_header + import_entry->Name ) );
 
 		if ( pre_callback )
@@ -141,12 +151,12 @@ bool pe::pe::resolve_imports(
 				return result;
 		}
 
-		auto first_thunk = 
-			reinterpret_cast< PIMAGE_THUNK_DATA64 >( 
-				(uint64_t)pdos_header + import_entry->FirstThunk );
+		auto first_thunk =
+			reinterpret_cast< PIMAGE_THUNK_DATA64 >(
+				( uint64_t )pdos_header + import_entry->FirstThunk );
 
-		auto first_thunk_original = 
-			reinterpret_cast< PIMAGE_THUNK_DATA64 >( 
+		auto first_thunk_original =
+			reinterpret_cast< PIMAGE_THUNK_DATA64 >(
 				( uint64_t )pdos_header + import_entry->OriginalFirstThunk );
 
 		while ( first_thunk_original->u1.Function )
@@ -195,4 +205,10 @@ bool pe::pe::is_nt_headers_valid() const noexcept
 bool pe::pe::is_64bit_image() const noexcept
 {
 	return pnt_headers->OptionalHeader.Magic == IMAGE_NT_OPTIONAL_HDR64_MAGIC;
+}
+
+bool pe::pe::valid_ptr( void* ptr ) const
+{
+	// TODO: implement
+	return true;
 }

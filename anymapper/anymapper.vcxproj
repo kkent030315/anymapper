@@ -149,6 +149,7 @@
     <ClInclude Include="..\..\anycall\libanycall\libanycall.h" />
     <ClInclude Include="anymapper.hpp" />
     <ClInclude Include="filebuf.hpp" />
+    <ClInclude Include="helper.hpp" />
     <ClInclude Include="kernel.hpp" />
     <ClInclude Include="nt.hpp" />
     <ClInclude Include="pe.hpp" />
