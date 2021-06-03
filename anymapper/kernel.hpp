@@ -24,32 +24,30 @@
 
 */
 
+#pragma once
 #include <windows.h>
-#include <iostream>
 
-#include "anymapper.hpp"
+#include "../anycall/libanycall/libanycall.h"
 
-int wmain( int argc, const wchar_t** argv, const wchar_t** envp )
+namespace kernel
 {
-	if ( argc < 2 )
+	//
+	// this pointer holds ntoskrnl's exported memcpy
+	// not rva, absolute address
+	//
+	inline void* ntoskrnl_memcpy = {};
+
+	//
+	// memcpy of kernel virtual memory
+	// invoke memcpy inside ntoskrnl
+	//
+	void memcpy( void* dst, void* src, size_t size )
 	{
-		printf( "[=] usage: bin.exe [driver_path]\n" );
-		return EXIT_FAILURE;
+		if ( !ntoskrnl_memcpy )
+			ntoskrnl_memcpy = ( void* )
+			libanycall::find_ntoskrnl_export( "memcpy" );
+
+		libanycall::invoke<decltype( &memcpy )>
+			( ntoskrnl_memcpy, dst, src, size );
 	}
-
-	const auto driver_path = argv[ 1 ];
-
-	if ( !libanycall::init( "ntdll.dll", "NtTraceControl" ) )
-	{
-		printf( "[!] failed to init libanycall\n" );
-		return EXIT_FAILURE;
-	}
-
-	if ( !anymapper::inject_driver( driver_path ) )
-	{
-		printf( "[!] failed to map driver\n" );
-		return EXIT_FAILURE;
-	}
-
-    return EXIT_SUCCESS;
 }

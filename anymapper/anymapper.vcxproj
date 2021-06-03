@@ -143,11 +143,15 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="pe.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\anycall\libanycall\libanycall.h" />
     <ClInclude Include="anymapper.hpp" />
+    <ClInclude Include="filebuf.hpp" />
+    <ClInclude Include="kernel.hpp" />
     <ClInclude Include="nt.hpp" />
+    <ClInclude Include="pe.hpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
