@@ -31,6 +31,7 @@ namespace pe
 			bool ret_on_pre_fail, 
 			bool ret_on_post_fail ) const noexcept;
 
+		bool valid() const noexcept;
 		bool is_dos_header_valid() const noexcept;
 		bool is_nt_headers_valid() const noexcept;
 		bool is_64bit_image() const noexcept;

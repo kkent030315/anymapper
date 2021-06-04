@@ -67,7 +67,7 @@ bool pe::pe::relocate_image( uint64_t delta ) const noexcept
 	{
 		volatile auto ptr_valid = relocation_entry->VirtualAddress;
 	}
-	__except ( 1 )
+	__except ( EXCEPTION_EXECUTE_HANDLER )
 	{
 		return false;
 	}
@@ -124,8 +124,9 @@ bool pe::pe::resolve_imports(
 		pnt_headers->OptionalHeader
 		.DataDirectory[ IMAGE_DIRECTORY_ENTRY_IMPORT ];
 
+	// this image does not have imports
 	if ( !import_data.Size )
-		return false;
+		return true;
 
 	const auto base_import = import_data.VirtualAddress;
 
@@ -184,6 +185,11 @@ bool pe::pe::resolve_imports(
 	}
 
 	return true;
+}
+
+bool pe::pe::valid() const noexcept
+{
+	return this->is_dos_header_valid() && this->is_nt_headers_valid();
 }
 
 bool pe::pe::is_dos_header_valid() const noexcept
