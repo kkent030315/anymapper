@@ -10,7 +10,7 @@
 
 # anymapper
 
-'anymapper' is a x64 Windows kernel driver mapper designed to inject unsigned drivers using anycall.
+anymapper is a x64 Windows kernel driver mapper designed to inject unsigned drivers using anycall.
 
 <p align="center">
 <img src="image.png">
@@ -19,7 +19,7 @@
 This project is work-in-progress (WIP).
 
 # How to Contribute
-Here are some ways you can help improve 'anymapper', whether it be code or suggestions:
+Here are some ways you can help improve anymapper, whether it be code or suggestions:
 
 - **Contributing to the codebase:** Interested in directly contributing to the codebase? Look for an open issue or feature requrest that matches your skills and interests. When submitting a pull request for a fix or new feature, please use a descriptive title, and an in-depth description of what your changes are.
 
@@ -28,9 +28,9 @@ Here are some ways you can help improve 'anymapper', whether it be code or sugge
     - Steps to reproduce.
     - A potential solution (if you have one in mind).
 
-- **Improving Documentation** Good documentation makes every project more accessible. You can help by adding new content (regardless of it is on a change that you made) or improving existing documentation. If you make any new changes to the codebase, please document your changes properly, espicially if it affects one might build and use 'anymapper'.
+- **Improving Documentation:** Good documentation makes every project more accessible. You can help by adding new content (regardless of it is on a change that you made) or improving existing documentation. If you make any new changes to the codebase, please document your changes properly, espicially if it affects one might build and use anymapper.
 
-- **Feature/Improvement Requests** If you think of a feature or improvement that matches the scope of this project, open an issue describing the feature and its potential benefits. While you're there, consider contributing to discussions on other issues.
+- **Feature/Improvement Requests:** If you think of a feature or improvement that matches the scope of this project, open an issue describing the feature and its potential benefits. While you're there, consider contributing to discussions on other issues.
 
 # To-Do
 
